@@ -58,6 +58,14 @@ def calculate_errors(gaze_predicted, label):
     return pitch_error, yaw_error
 
 
+def strip_optimizer(filename):
+    x = torch.load(filename, map_location=torch.device('cpu'))
+    x['model'].half()  # to FP16
+    for p in x['model'].parameters():
+        p.requires_grad = False
+    torch.save(x, filename)
+
+
 class AverageMeter:
     def __init__(self):
         self.num = 0
@@ -68,14 +76,6 @@ class AverageMeter:
         self.num = self.num + n
         self.sum = self.sum + v * n
         self.avg = self.sum / self.num
-
-
-def strip_optimizer(filename):
-    x = torch.load(filename, map_location=torch.device('cpu'))
-    x['model'].half()  # to FP16
-    for p in x['model'].parameters():
-        p.requires_grad = False
-    torch.save(x, filename)
 
 
 class CosineLR:

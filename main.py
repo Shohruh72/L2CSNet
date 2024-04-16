@@ -44,7 +44,7 @@ def train(args):
     scheduler = util.CosineLR(args, optimizer)
     with open('./weights/log.csv', 'w') as log:
         if args.local_rank == 0:
-            logger = csv.DictWriter(log, fieldnames=['epoch', 'Pitch', 'Yaw', 'P_TR_loss', 'Y_TR_loss'])
+            logger = csv.DictWriter(log, fieldnames=['epoch', 'Pitch', 'Yaw'])
             logger.writeheader()
         for epoch in range(args.epochs):
             p_bar = loader
@@ -75,8 +75,8 @@ def train(args):
                 y_pred = torch.sum(softmax(yaw) * idx_tensor, 1) * 4 - 180
 
                 # Total loss
-                loss_p += args.alpha * reg_criterion(p_pred, p_cont_gt)
-                loss_y += args.alpha * reg_criterion(y_pred, y_cont_gt)
+                loss_p += reg_criterion(p_pred, p_cont_gt)
+                loss_y += reg_criterion(y_pred, y_cont_gt)
 
                 loss_seq = [loss_p, loss_y]
                 grad_seq = [torch.tensor(1.0).cuda() for _ in range(len(loss_seq))]
@@ -106,9 +106,7 @@ def train(args):
                 last = test(args, ema.ema)
                 logger.writerow({'epoch': str(epoch + 1).zfill(3),
                                  'Pitch': str(f'{last[0]:.3f}'),
-                                 'Yaw': str(f'{last[1]:.3f}'),
-                                 'P_TR_loss': str(f'{avg_loss_pitch.avg:.3f}'),
-                                 'Y_TR_loss': str(f'{avg_loss_yaw.avg:.3f}')})
+                                 'Yaw': str(f'{last[1]:.3f}'),})
                 log.flush()
                 is_best = sum(last) < best
 
@@ -166,16 +164,19 @@ def test(args, model=None):
     return p_error, y_error
 
 
+# def demo(args):
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-name', type=str, default='18')
     parser.add_argument('--data-dir', type=str, default='./Gaze360')
-    parser.add_argument('--epochs', type=int, default=30)
     parser.add_argument('--bins', type=int, default=90)
+    parser.add_argument('--alpha', type=float, default=1)
+    parser.add_argument('--epochs', type=int, default=30)
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--batch-size', type=int, default=64)
     parser.add_argument('--lr', dest='lr', type=float, default=0.00001)
-    parser.add_argument('--alpha', type=float, default=1)
     parser.add_argument('--train',  action='store_true')
     parser.add_argument('--test', action='store_true')
     args = parser.parse_args()
