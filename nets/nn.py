@@ -1,46 +1,45 @@
 import math
-import copy
 
-import torch
-import torchvision.models.resnet as resnet
+import torch.nn as nn
+from torchvision.models import resnet
 import torch.utils.model_zoo as model_zoo
 
 
-class L2CS(torch.nn.Module):
+class L2CS(nn.Module):
     def __init__(self, block, layers, num_bins):
         self.inplanes = 64
         super(L2CS, self).__init__()
-        self.conv1 = torch.nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = torch.nn.BatchNorm2d(64)
-        self.relu = torch.nn.ReLU(inplace=True)
-        self.maxpool = torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        self.avgpool = torch.nn.AdaptiveAvgPool2d((1, 1))
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
-        self.fc_yaw_gaze = torch.nn.Linear(512 * block.expansion, num_bins)
-        self.fc_pitch_gaze = torch.nn.Linear(512 * block.expansion, num_bins)
+        self.fc_yaw_gaze = nn.Linear(512 * block.expansion, num_bins)
+        self.fc_pitch_gaze = nn.Linear(512 * block.expansion, num_bins)
 
         # Vestigial layer from previous experiments
-        self.fc_finetune = torch.nn.Linear(512 * block.expansion + 3, 3)
+        self.fc_finetune = nn.Linear(512 * block.expansion + 3, 3)
 
         for m in self.modules():
-            if isinstance(m, torch.nn.Conv2d):
+            if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))
-            elif isinstance(m, torch.nn.BatchNorm2d):
+            elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = torch.nn.Sequential(
-                torch.nn.Conv2d(self.inplanes, planes * block.expansion,
+            downsample = nn.Sequential(
+                nn.Conv2d(self.inplanes, planes * block.expansion,
                           kernel_size=1, stride=stride, bias=False),
-                torch.nn.BatchNorm2d(planes * block.expansion),
+                nn.BatchNorm2d(planes * block.expansion),
             )
 
         layers = []
@@ -49,7 +48,7 @@ class L2CS(torch.nn.Module):
         for i in range(1, blocks):
             layers.append(block(self.inplanes, planes))
 
-        return torch.nn.Sequential(*layers)
+        return nn.Sequential(*layers)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -68,29 +67,6 @@ class L2CS(torch.nn.Module):
         pre_yaw_gaze = self.fc_yaw_gaze(x)
         pre_pitch_gaze = self.fc_pitch_gaze(x)
         return pre_yaw_gaze, pre_pitch_gaze
-
-
-class EMA:
-    def __init__(self, model, decay=0.9999, tau=2000, updates=0):
-        self.ema = copy.deepcopy(model).eval()  # FP32 EMA
-        self.updates = updates  # number of EMA updates
-        self.decay = lambda x: decay * (1 - math.exp(-x / tau))
-        for p in self.ema.parameters():
-            p.requires_grad_(False)
-
-    def update(self, model):
-        if hasattr(model, 'module'):
-            model = model.module
-        # Update EMA parameters
-        with torch.no_grad():
-            self.updates += 1
-            d = self.decay(self.updates)
-
-            msd = model.state_dict()  # model state_dict
-            for k, v in self.ema.state_dict().items():
-                if v.dtype.is_floating_point:
-                    v *= d
-                    v += (1 - d) * msd[k].detach()
 
 
 def load_weights(model, ckpt):
