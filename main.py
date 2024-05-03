@@ -230,11 +230,11 @@ def demo(args):
 
             cv2.imshow("Demo", frame)
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-        # stream.release()
-        # cv2.destroyAllWindows()
+    stream.release()
+    cv2.destroyAllWindows()
 
 
 def main():
