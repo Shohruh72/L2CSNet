@@ -46,8 +46,8 @@ pip install timm
 
 | Backbone  | Epochs |  MAE |                                                                                Model |
 |:---------:|:------:|-----:|-------------------------------------------------------------------------------------:|
-| ResNet18  |  120   | 10.6 | [**weight**](https://github.com/Shohruh72/L2CSNet/releases/download/v.1.0.0/best.pt) |
-| ResNet18* |  120   | 12.2 |                                                                                      |
+| ResNet18  |  180   | 10.6 | [**weight**](https://github.com/Shohruh72/L2CSNet/releases/download/v.1.0.0/best.pt) |
+| ResNet18* |  180   | 11.2 |                                                                                      |
 
 `*` means that the results are from original repo, see reference
 
